@@ -1,10 +1,7 @@
 # 994G601-ml
 - [x] setup
-- GAN w/ MNIST
-    - [ ] implement
--
-
-- [ ] streamlit
+- [x] GAN w/ MNIST
+- [ ]
 - [ ] write a report
 
 ## setup
