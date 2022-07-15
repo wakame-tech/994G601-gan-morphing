@@ -14,7 +14,7 @@
     - [x] train
     - [x] test
     - [x] viz attn mask
-- [ ] write a report
+- [x] write a report
 
 ## assignment 3
 TBD
