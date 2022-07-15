@@ -10,10 +10,10 @@
 - [x] disc' model of CNN
     - [x] train
     - [x] test
-- [ ] disc' model of CNN with spatial attention
-    - [ ] train
-    - [ ] test
-    - [ ] viz attn mask
+- [x] disc' model of CNN with spatial attention
+    - [x] train
+    - [x] test
+    - [x] viz attn mask
 - [ ] write a report
 
 ## assignment 3
