@@ -1,33 +1,29 @@
-import numpy as np
+from functools import reduce
+from typing import Tuple
 import torch
 import torch.nn as nn
 
+
+def prod(t: tuple) -> int:
+    return reduce(lambda x, y: x * y, t)
+
 class Model(nn.Module):
-    def __init__(self, input_shape, num_actions: int):
+    def __init__(self, input_shape: Tuple[int], num_actions: int):
         super(Model, self).__init__()
-        self.input_shape = input_shape
-        self.num_actions = num_actions
+        self.input_length = prod(input_shape)
+        self.fc1 = nn.Linear(self.input_length, 1024)
+        self.fc2 = nn.Linear(1024, 256)
+        self.fc3 = nn.Linear(256, num_actions)
+        self.relu = nn.ReLU()
 
-        self.net = nn.Sequential(
-            nn.Conv2d(input_shape[0], 32, kernel_size=8, stride=4),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
-            nn.ReLU(),
-        )
-        self.fc = nn.Sequential(
-            nn.Linear(self.feature_size, 512),
-            nn.ReLU(),
-            nn.Linear(512, self.num_actions)
-        )
-
-    @property
-    def feature_size(self):
-        return self.net(torch.zeros(1, *self.input_shape)).view(1, -1).size(1)
-
-    def forward(self, x):
-        x = self.net(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc(x)
-        return x
+    def forward(self, x: torch.Tensor):
+        """
+        x:
+        """
+        # assert x.shape == (1, self.input_length), f'x.shape: {x.shape}'
+        h = self.fc1(x)
+        h = self.relu(h)
+        h = self.fc2(h)
+        h = self.relu(h)
+        h = self.fc3(h)
+        return h
