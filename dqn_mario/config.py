@@ -1,19 +1,20 @@
 from pathlib import Path
-from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
+from gym_super_mario_bros.actions import SIMPLE_MOVEMENT, RIGHT_ONLY
 from eps_controller import ConstantEps
 
 class Config:
     device: str = 'cpu'
     batch_size: int = 1
     replay_momory_capacity: int = 100000
-    target_update_frequency: int = 30
-    n_episodes: int = 30
-    n_steps: int = 300
+    target_update_frequency: int = 50
+    n_episodes: int = 1000
+    n_steps: int = 3000
     discount_factor: float = 0.98
 
     # env_id: str = 'SuperMarioBros-v3'
     env_id: str = 'SuperMarioBros-v0'
-    env_render: bool = True
+    env_render: bool = False
+    reward_render: bool = False
 
     eps = ConstantEps(0.3)
     gamma = 0.99
@@ -24,6 +25,6 @@ class Config:
     # eps_end = 0.01
     # eps_decay = 500
 
-    actions = SIMPLE_MOVEMENT
+    actions = RIGHT_ONLY
     project_id: str = 'smb-dqn'
     model_dir: Path = Path('models/')

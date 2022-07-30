@@ -1,6 +1,7 @@
 
 from gym import Env
-from torch import FloatTensor, Tensor, det
+from monitor import Monitor
+from torch import FloatTensor, Tensor
 from config import Config
 from memory import SMBReplayMemory
 from model_utils import load_model, save_model
@@ -9,6 +10,7 @@ from gym_env import make_env
 from model import Model
 import numpy as np
 from torch.autograd import Variable
+from datetime import datetime
 
 def make_action(model: Model, env: Env, state: np.ndarray, eps: float) -> int:
     if np.random.random() < eps:
@@ -27,8 +29,17 @@ def train(
     memory: SMBReplayMemory,
     optimizer: torch.optim.Optimizer,
 ):
+
+    if config.reward_render:
+        plotter = Monitor(1, 100, 'steps', 'ep_reward')
+    now = datetime.now()
+    x_pos = 0
     for episode in range(config.n_episodes):
-        print(f'ep: {episode}')
+        if config.reward_render:
+            plotter.reset()
+        delta = datetime.now() - now
+        print(f'ep: {episode} @ {delta.total_seconds()}s')
+        now = datetime.now()
 
         state: np.ndarray = env.reset()  # type: ignore
         ep_reward: float = 0.0
@@ -46,6 +57,7 @@ def train(
             memory.push(state, action, reward, next_state, done)
             state = next_state
             ep_reward += reward
+            x_pos = info['x_pos']
 
             if done:
                 # TODO:
@@ -54,7 +66,6 @@ def train(
             # update model
             # sync
             if step % config.target_update_frequency == 0:
-                print('sync target model')
                 target_model.load_state_dict(model.state_dict())
 
             # compute loss
@@ -85,8 +96,11 @@ def train(
 
             loss = loss_step(memory)
 
-            print(f'ep: {episode:3d} step: {step:4d}/{config.n_steps} action: {action}, reward: {reward:2f} (total: {ep_reward:2f}), loss: {loss:.4f}')
+            # print(f'ep: {episode:3d} step: {step:4d}/{config.n_steps} action: {action}, reward: {reward:2f} (total: {ep_reward:2f}), loss: {loss:.4f}')
+            if config.reward_render:
+                plotter.update(ep_reward)
 
+        print(f'x_pos: {x_pos}')
         save_model(config, model, optimizer, episode)
 
 if __name__ == '__main__':

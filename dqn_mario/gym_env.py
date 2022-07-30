@@ -1,13 +1,16 @@
 
 from gym import Env
-from gym.envs.registration import make
-from gym.core import ObservationWrapper, Wrapper
+# from gym.envs.registration import make
+from gym_super_mario_bros import make
+from gym.core import ObservationWrapper
 from config import Config
 import numpy as np
 
 from gym.spaces import Box
 from nes_py.wrappers import JoypadSpace
 import cv2
+
+from reward import Reward
 
 class FrameDownsample(ObservationWrapper):
     def __init__(self, env, config: Config):
@@ -29,28 +32,7 @@ class FrameDownsample(ObservationWrapper):
         )
         return frame[:, :, None]
 
-def score_fn(score, action, info) -> float:
-    res = 0.0
-    x_pos = info['x_pos']
-
-    res += (x_pos - score) / 100.0
-    if action == 6:
-        res -= 3.0
-
-    return res
-
-class Reward(Wrapper):
-    def __init__(self, env: Env):
-        super(Reward, self).__init__(env)
-        self.current_score = 0
-
-    def step(self, action):
-        state, reward, done, info = self.env.step(action)
-        self.current_score = score_fn(self.current_score, action, info)
-        return state, reward, done, info
-
 def make_env(config: Config) -> Env:
-    from gym_super_mario_bros import make
     env = make(config.env_id)
     env = JoypadSpace(env, config.actions)
     env = FrameDownsample(env, config)
