@@ -17,7 +17,10 @@
 - [x] write a report
 
 ## assignment 3
-TBD
+- [x] setup
+- [x] read sample code
+
+
 ## setup
 ### install dependencies
 ```bash
