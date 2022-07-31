@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 
 # ref: <https://www.wizard-notes.com/entry/python/matplotlib-realtime-plot-line>
 class Monitor():

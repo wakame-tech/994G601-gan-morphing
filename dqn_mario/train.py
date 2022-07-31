@@ -47,12 +47,12 @@ def train(
     memory: SMBReplayMemory,
     optimizer: torch.optim.Optimizer,
 ):
-    df = pd.DataFrame(columns=['episode', 'step', 'loss', 'reward', 'eps', 'action', 'x_pos'])
+    df = pd.DataFrame(columns=['episode', 'step', 'loss', 'reward', 'ep_reward', 'eps', 'action', 'x_pos'])
 
     now = datetime.now()
     criterion = nn.SmoothL1Loss()
 
-    for episode in range(config.n_episodes):
+    for episode in range(config.start_episode, config.n_episodes):
         delta = datetime.now() - now
         print(f'ep: {episode} @ {delta.total_seconds()}s')
         now = datetime.now()
@@ -101,6 +101,7 @@ def train(
                     'step': step,
                     'loss': loss,
                     'reward': reward,
+                    'ep_reward': ep_reward,
                     'eps': eps,
                     'action': action,
                     'x_pos': info['x_pos'],
@@ -113,15 +114,26 @@ def train(
             if done:
                 break
         if episode % 10 == 0:
-            save_model(config, model, optimizer, episode)
+            save_model(config, model, optimizer, memory, episode)
 
     df.to_csv(config.model_dir / f'{config.project_id}_log.csv', index=False)
 
-if __name__ == '__main__':
-    for rep_momory_size in [1000, 10000, 100000]:
+
+def exp_mem(course: str):
+    env_id = f'SuperMarioBros-{course}-v0'
+    for rep_momory_size in [
+        1000,
+        10000,
+        100000,
+    ]:
         config = Config()
-        config.project_id = f'smb-1-4-dqn_mem={rep_momory_size}'
+        config.env_id = env_id
+        config.project_id = f'{config.project_id}-{course}_mem={rep_momory_size}'
         env = make_env(config)
-        model, target_model, optimizer = load_model(config, env)
-        memory = SMBReplayMemory(config.replay_momory_capacity)
+        model, target_model, optimizer, memory = load_model(config, env)
         train(config, env, model, target_model, memory, optimizer)
+
+
+if __name__ == '__main__':
+    exp_mem('1-1')
+    exp_mem('2-2')

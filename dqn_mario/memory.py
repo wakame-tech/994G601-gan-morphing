@@ -1,12 +1,19 @@
 from collections import deque
+from pathlib import Path
 from typing import Tuple
 import torch
 import numpy as np
+import pickle
 
 class SMBReplayMemory:
     def __init__(self, capa: int):
         self.capa = capa
         self.buffer = deque()
+
+    def save_pickle(self, path: Path):
+        with open(path, 'wb') as f:
+            pickle.dump(self, f)
+
 
     def push(self, state: np.ndarray, action: int, reward: float, next_state: np.ndarray, done: bool):
         """
@@ -41,3 +48,9 @@ class SMBReplayMemory:
 
     def __len__(self):
         return len(self.buffer)
+
+
+def load_pickle(path: Path) -> SMBReplayMemory:
+    with open(path, 'rb') as f:
+        memory = pickle.load(f)
+    return memory

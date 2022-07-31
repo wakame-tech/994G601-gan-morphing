@@ -1,10 +1,8 @@
 
-from functools import reduce
 from typing import List
 from gym import Env, Wrapper
 from config import Config
 from monitor import Monitor
-import numpy as np
 
 class DxScore:
     def __init__(self) -> None:
