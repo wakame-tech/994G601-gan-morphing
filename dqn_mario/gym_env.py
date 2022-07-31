@@ -36,5 +36,5 @@ def make_env(config: Config) -> Env:
     env = make(config.env_id)
     env = JoypadSpace(env, config.actions)
     env = FrameDownsample(env, config)
-    env = Reward(env)
+    env = Reward(env, config)
     return env
