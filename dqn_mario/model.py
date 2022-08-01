@@ -11,14 +11,16 @@ class Model(nn.Module):
     def __init__(self, input_shape: Tuple[int], num_actions: int):
         super(Model, self).__init__()
         self.input_length = prod(input_shape)
+        # dims = [self.input_length, 1024, 512, 256, num_actions]
+        dims = [self.input_length, 64, 64, 64, num_actions]
         self.net = nn.Sequential(
-            nn.Linear(self.input_length, 1024),
+            nn.Linear(dims[0], dims[1]),
             nn.ReLU(),
-            nn.Linear(1024, 512),
+            nn.Linear(dims[1], dims[2]),
             nn.ReLU(),
-            nn.Linear(512, 256),
+            nn.Linear(dims[2], dims[3]),
             nn.ReLU(),
-            nn.Linear(256, num_actions),
+            nn.Linear(dims[3], dims[4]),
         )
 
     def forward(self, x: torch.Tensor):

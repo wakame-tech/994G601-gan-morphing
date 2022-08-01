@@ -9,17 +9,16 @@ class ConstantEps():
         return self.eps
 
 class DecayEps():
-    def __init__(self, begin: float, end: float, decay_steps: int) -> None:
-        self.decay_steps = decay_steps
-        self.steps = 0
+    """
+    decayed eplison-greedy policy
+    """
+    def __init__(self, begin: float, end: float, decay_episodes: int) -> None:
+        assert begin > end, f'begin: {begin}, end: {end}'
+        self.decay_episodes = decay_episodes
         self.begin = begin
         self.end = end
 
-    def reset(self):
-        self.steps = 0
-
-    def __call__(self) -> float:
-        prog = math.exp(-self.steps / self.decay_steps)
-        eps = self.end + (self.begin - self.end) * math.exp(prog)
-        self.steps += 1
-        return eps
+    def __call__(self, episode: int) -> float:
+        r = math.exp(-1. * episode / self.decay_episodes)
+        # correct
+        return self.end + (self.begin - self.end) * r
