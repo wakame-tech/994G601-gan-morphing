@@ -33,7 +33,7 @@ def load_model(config: Config, env: Env) -> Tuple[Model, Model, torch.optim.Opti
 
     memory = ReplayMemory(config.replay_momory_capacity)
 
-    if model_path.exists() and memory_path.exists():
+    if False and model_path.exists() and memory_path.exists():
         memory = load_pickle(memory_path)
         state = torch.load(model_path)
         model.load_state_dict(state['model'])

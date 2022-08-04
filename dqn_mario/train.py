@@ -11,7 +11,6 @@ import numpy as np
 import torch.nn as nn
 from datetime import datetime
 import warnings
-from icecream import ic
 
 from util import send_discord
 
@@ -28,7 +27,6 @@ def train_model(
     """
     returns train loss
     """
-    model.train()
     states, actions, rewards, next_states, dones = memory.sample(config.replay_memory_batch_size)
 
     # predict q_t
@@ -44,8 +42,9 @@ def train_model(
 
     optimizer.zero_grad()
     loss.backward()
-    loss = loss.mean()
     optimizer.step()
+
+    loss = loss.mean()
 
     return loss.item()
 
@@ -69,15 +68,17 @@ def train(
     memory: ReplayMemory,
     optimizer: torch.optim.Optimizer,
 ):
+    model.train()
+
     # logger = CSVLogger(config, ['episode', 'step', 'loss', 'reward', 'ep_reward', 'eps', 'action', 'x_pos'])
-    logger = CSVLogger(config, ['episode', 'step', 'loss', 'reward', 'ep_reward', 'eps', 'action', 'x_pos'])
+    logger = CSVLogger(config, ['episode', 'step', 'loss', 'reward', 'ep_reward', 'eps', 'action'])
     now = datetime.now()
     criterion = nn.SmoothL1Loss()
 
     for episode in range(config.start_episode, config.n_episodes):
         state: np.ndarray = env.reset()  # type: ignore
         ep_reward: float = 0.0
-        max_x_pos: float = 0.0
+        # max_x_pos: float = 0.0
 
         # get eps
         # eps is 1.0 when collectiong data to memory
@@ -102,6 +103,7 @@ def train(
 
             # sync target model
             if step % config.target_update_frequency == 0:
+                print(f'update target model')
                 target_model.load_state_dict(model.state_dict())
 
             # compute loss
@@ -115,22 +117,19 @@ def train(
                 'ep_reward': ep_reward,
                 'eps': eps,
                 'action': action,
-                'x_pos': info['x_pos'],
+                # 'x_pos': info['x_pos'],
             })
 
-            max_x_pos = max(max_x_pos, info['x_pos'])
-
-            # if step % 10 == 0:
-            #     print(f'[{episode:3d}-{step:4d}/{config.n_steps}] reward: {reward:.2f} (total: {ep_reward:.2f}), loss: {loss:.4f}, action: {config.actions[action]}, x_pos: {info["x_pos"]}')
+            # print(f'{step} step eps: {eps:.2f} reward: {reward:.2f} loss: {loss:.4f}')
 
             if done:
                 delta = datetime.now() - now
                 now = datetime.now()
-                print(f'ep: {episode} @ {delta.total_seconds():.1f}s eps: {eps:.2f} total_reward: {ep_reward:.2f}')
+                print(f'ep: {episode} @ {delta.total_seconds():.1f}s eps: {eps:.2f} total_reward: {ep_reward:.2f} loss: {loss:.4f}')
                 break
 
         if episode % config.model_save_interval_episode == 0:
-            message = f'[{config.project_id}/ep {episode:3d}] (total: {ep_reward:.2f}) x_pos: {max_x_pos:.2f}'
+            message = f'[{config.project_id}/ep {episode:3d}] (total: {ep_reward:.2f}) loss: {loss:.4f}'
             send_discord(message)
             save_model(config, model, optimizer, memory, episode)
 
@@ -156,13 +155,20 @@ def exp_mem(course: str):
 
 
 def exp_cartpole():
-    config = CartPoleConfig()
-    env = make_env(config)
+    for rep_momory_size in [
+        10,
+        1000,
+        100000,
+    ]:
+        config = CartPoleConfig()
+        env = make_env(config)
+        config.replay_memory_batch_size = rep_momory_size
+        config.project_id = f'{config.project_id}_mem={rep_momory_size}'
 
-    model, target_model, optimizer, memory = load_model(config, env)
-    train(config, env, model, target_model, memory, optimizer)
+        model, target_model, optimizer, memory = load_model(config, env)
+        train(config, env, model, target_model, memory, optimizer)
 
 if __name__ == '__main__':
-    # exp_cartpole()
-    exp_mem('1-1')
-    exp_mem('2-2')
+    exp_cartpole()
+    # exp_mem('1-1')
+    # exp_mem('2-2')

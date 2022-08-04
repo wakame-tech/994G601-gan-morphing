@@ -33,22 +33,22 @@ class SMBConfig(Config):
     model_dir: Path = Path('models/')
     model_save_interval_episode: int = 50
     # frame_size = (84, 84)
-    frame_size = (64, 36)
-    # frame_size = (32, 18)
+    # frame_size = (64, 36)
+    frame_size = (32, 18)
 
-    env_render: bool = False
+    env_render: bool = True
     reward_render: bool = False
 
     # -- about learning --
     replay_momory_capacity: int = 100000
     replay_memory_batch_size: int = 100
 
-    target_update_frequency: int = 30
+    target_update_frequency: int = 50
     n_episodes: int = 1000
     start_episode: int = 0
     n_steps: int = 2000
     # eps = ConstantEps(0.5)
-    eps = DecayEps(1.0, 0.01, 1000)
+    eps = DecayEps(1.0, 0.01, 500)
     gamma = 0.90
 
 class CartPoleConfig(Config):
@@ -67,10 +67,10 @@ class CartPoleConfig(Config):
     # replay memory batch size
     replay_memory_batch_size: int = 128
 
-    target_update_frequency: int = 5
+    target_update_frequency: int = 10
     n_episodes: int = 1000
     start_episode: int = 0
     n_steps: int = 500
     # eps = ConstantEps(0.5)
-    eps = DecayEps(1.0, 0.01, 300)
-    gamma = 0.90
+    eps = DecayEps(1.0, 0.01, 200)
+    gamma = 0.98
