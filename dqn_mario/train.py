@@ -1,6 +1,6 @@
 
 from gym import Env
-from config import CartPoleConfig, Config
+from config import CartPoleConfig, Config, SMBConfig
 from memory import ReplayMemory
 from model_utils import load_model, save_model
 from csv_logger import CSVLogger
@@ -12,6 +12,8 @@ import torch.nn as nn
 from datetime import datetime
 import warnings
 from icecream import ic
+
+from util import send_discord
 
 warnings.simplefilter('ignore')
 
@@ -36,7 +38,7 @@ def train_model(
     qs_next = target_model(next_states).max(1)[0].detach()
 
     # * (1 - dones) means if done, qs[*] = 0
-    expected_qs = (qs_next * config.gamma) + rewards * (1 - dones)
+    expected_qs = rewards + (qs_next * config.gamma)
 
     loss = criterion(qs, expected_qs)
 
@@ -68,13 +70,14 @@ def train(
     optimizer: torch.optim.Optimizer,
 ):
     # logger = CSVLogger(config, ['episode', 'step', 'loss', 'reward', 'ep_reward', 'eps', 'action', 'x_pos'])
-    logger = CSVLogger(config, ['episode', 'step', 'loss', 'reward', 'ep_reward', 'eps', 'action'])
+    logger = CSVLogger(config, ['episode', 'step', 'loss', 'reward', 'ep_reward', 'eps', 'action', 'x_pos'])
     now = datetime.now()
     criterion = nn.SmoothL1Loss()
 
     for episode in range(config.start_episode, config.n_episodes):
         state: np.ndarray = env.reset()  # type: ignore
         ep_reward: float = 0.0
+        max_x_pos: float = 0.0
 
         # get eps
         # eps is 1.0 when collectiong data to memory
@@ -92,7 +95,7 @@ def train(
             action = make_action(model, env, state, eps)
 
             # step and update memory
-            next_state, reward, done, *_ = env.step(action)
+            next_state, reward, done, info = env.step(action)
             memory.push(state, action, reward, next_state, done)
             state = next_state
             ep_reward += reward
@@ -112,11 +115,13 @@ def train(
                 'ep_reward': ep_reward,
                 'eps': eps,
                 'action': action,
-                # 'x_pos': info['x_pos'],
+                'x_pos': info['x_pos'],
             })
 
-            # print(f'[{episode:3d}-{step:4d}/{config.n_steps}] reward: {reward:.2f} (total: {ep_reward:.2f}), loss: {loss:.4f}, action: {config.actions[action]}, x_pos: {info["x_pos"]}')
-            # print(f'[{episode:3d}-{step:4d}/{config.n_steps}] reward: {reward:.2f} (total: {ep_reward:.2f}), loss: {loss:.4f}, action: {config.actions[action]}')
+            max_x_pos = max(max_x_pos, info['x_pos'])
+
+            # if step % 10 == 0:
+            #     print(f'[{episode:3d}-{step:4d}/{config.n_steps}] reward: {reward:.2f} (total: {ep_reward:.2f}), loss: {loss:.4f}, action: {config.actions[action]}, x_pos: {info["x_pos"]}')
 
             if done:
                 delta = datetime.now() - now
@@ -125,6 +130,8 @@ def train(
                 break
 
         if episode % config.model_save_interval_episode == 0:
+            message = f'[{config.project_id}/ep {episode:3d}] (total: {ep_reward:.2f}) x_pos: {max_x_pos:.2f}'
+            send_discord(message)
             save_model(config, model, optimizer, memory, episode)
 
         logger.save()
@@ -137,7 +144,7 @@ def exp_mem(course: str):
         10000,
         100000,
     ]:
-        config = Config()
+        config = SMBConfig()
 
         # continue
         config.env_id = env_id
@@ -156,6 +163,6 @@ def exp_cartpole():
     train(config, env, model, target_model, memory, optimizer)
 
 if __name__ == '__main__':
-    exp_cartpole()
-    # exp_mem('1-1')
-    # exp_mem('2-2')
+    # exp_cartpole()
+    exp_mem('1-1')
+    exp_mem('2-2')

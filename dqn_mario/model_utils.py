@@ -40,10 +40,8 @@ def load_model(config: Config, env: Env) -> Tuple[Model, Model, torch.optim.Opti
         optimizer.load_state_dict(state['optimizer'])
         print(f'load model from {model_path}, {memory_path}')
 
-    model.train()
     print(model)
 
     target_model = Model(space_shape, n)
-    target_model.eval()
 
     return model, target_model, optimizer, memory

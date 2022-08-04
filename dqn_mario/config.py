@@ -31,9 +31,10 @@ class SMBConfig(Config):
     actions = SIMPLE_MOVEMENT
     project_id: str = 'smb-dqn'
     model_dir: Path = Path('models/')
-    model_save_interval_episode: int = 100
+    model_save_interval_episode: int = 50
     # frame_size = (84, 84)
-    frame_size = (32, 18)
+    frame_size = (64, 36)
+    # frame_size = (32, 18)
 
     env_render: bool = False
     reward_render: bool = False
@@ -43,17 +44,17 @@ class SMBConfig(Config):
     replay_memory_batch_size: int = 100
 
     target_update_frequency: int = 30
-    n_episodes: int = 500
-    start_episode: int = 100
-    n_steps: int = 1000
+    n_episodes: int = 1000
+    start_episode: int = 0
+    n_steps: int = 2000
     # eps = ConstantEps(0.5)
-    eps = DecayEps(1.0, 0.01, 500)
-    gamma = 0.99
+    eps = DecayEps(1.0, 0.01, 1000)
+    gamma = 0.90
 
 class CartPoleConfig(Config):
     device: str = 'cpu'
     env_id: str = 'CartPole-v0'
-    actions = SIMPLE_MOVEMENT
+    # actions = SIMPLE_MOVEMENT
     project_id: str = 'cartpole-dqn'
     model_dir: Path = Path('models/')
     model_save_interval_episode: int = 100
@@ -66,10 +67,10 @@ class CartPoleConfig(Config):
     # replay memory batch size
     replay_memory_batch_size: int = 128
 
-    target_update_frequency: int = 30
+    target_update_frequency: int = 5
     n_episodes: int = 1000
     start_episode: int = 0
     n_steps: int = 500
     # eps = ConstantEps(0.5)
     eps = DecayEps(1.0, 0.01, 300)
-    gamma = 0.99
+    gamma = 0.90
