@@ -1,7 +1,0 @@
-set dotenv-load
-
-notify:
-    curl -X POST -H "Content-Type: application/json" -d "{\"content\": \"train end\"}" ${WEBHOOK_URL}
-
-train:
-    python train.py && just notify

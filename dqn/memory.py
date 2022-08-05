@@ -1,11 +1,12 @@
 from collections import deque
 from pathlib import Path
+from tkinter import Variable
 from typing import Tuple
 import torch
 import numpy as np
 import pickle
 
-class SMBReplayMemory:
+class ReplayMemory:
     def __init__(self, capa: int):
         self.capa = capa
         self.buffer = deque()
@@ -31,9 +32,16 @@ class SMBReplayMemory:
 
         self.buffer.append(batch)
 
-    def sample(self, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, np.ndarray]:
+    def sample(self, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         sample from buffer
+
+        return:
+            states: (batch_size, state_dim)
+            actions: (batch_size)
+            rewards: (batch_size)
+            next_states: (batch_size, state_dim)
+            dones: (batch_size)
         """
         indices = np.random.choice(len(self.buffer), batch_size)
         samples = [self.buffer[i] for i in indices]
@@ -42,15 +50,40 @@ class SMBReplayMemory:
         states, actions, rewards, next_states, dones = torch.Tensor(states), torch.LongTensor(actions), torch.Tensor(rewards), torch.Tensor(next_states), torch.Tensor(dones)
 
         # uniformly weight
-        weights = np.array([1.0] * batch_size) / len(self.buffer)
-        return states, actions, rewards, next_states, dones, weights
+        # weights = np.array([1.0] * batch_size) / len(self.buffer)
+        # weights = torch.Tensor(weights)
+        return states, actions, rewards, next_states, dones
 
 
     def __len__(self):
         return len(self.buffer)
 
 
-def load_pickle(path: Path) -> SMBReplayMemory:
+def load_pickle(path: Path) -> ReplayMemory:
     with open(path, 'rb') as f:
         memory = pickle.load(f)
     return memory
+
+from dataclasses import dataclass
+
+@dataclass
+class Step:
+    confidence: Variable
+    reward: float
+
+class EpisodeSteps:
+    def __init__(self, gamma: float) -> None:
+        self.gamma = gamma
+        self.buffer = []
+
+    def append(self, step: Step):
+        self.buffer.append(step)
+
+    def loss(self) -> Tuple[float, torch.Tensor]:
+        loss = torch.tensor(1, dtype=torch.float32)
+        for i, step in enumerate(self.buffer):
+            reward = sum([(self.gamma ** j) * step.reward for j, step in enumerate(self.buffer[i:])])
+            loss += -torch.log(step.confidence) * reward
+
+        ep_reward = sum([(self.gamma ** j) * step.reward for j, step in enumerate(self.buffer)])
+        return ep_reward, loss
