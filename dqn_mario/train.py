@@ -1,14 +1,14 @@
 
 from gym import Env
-from config import CartPoleConfig, Config, SMBConfig
-from memory import ReplayMemory
+from config import CartPoleConfig
+from memory import EpisodeSteps, ReplayMemory, Step
 from model_utils import load_model, save_model
 from csv_logger import CSVLogger
 import torch
 from gym_env import make_env
 from model import Model
+from torch.autograd import Variable
 import numpy as np
-import torch.nn as nn
 from datetime import datetime
 import warnings
 
@@ -16,13 +16,12 @@ from util import send_discord
 
 warnings.simplefilter('ignore')
 
-def train_model(
-    config: Config,
+def train_loss(
+    config: CartPoleConfig,
     model: Model,
     target_model: Model,
     memory: ReplayMemory,
     optimizer: torch.optim.Optimizer,
-    criterion
 ) -> float:
     """
     returns train loss
@@ -33,18 +32,15 @@ def train_model(
     qs = model(states).gather(1, actions.unsqueeze(-1)).squeeze(-1)
     # predit q_t+1
     qs_next = torch.zeros(config.replay_memory_batch_size)
-    qs_next = target_model(next_states).max(1)[0].detach()
+    qs_next = target_model(next_states).max(1)[0]
 
     # * (1 - dones) means if done, qs[*] = 0
-    expected_qs = rewards + (qs_next * config.gamma)
-
-    loss = criterion(qs, expected_qs)
+    expected_qs = rewards + (qs_next * config.gamma) * (1 - dones)
+    loss = (qs - expected_qs).pow(2).mean()
 
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
-
-    loss = loss.mean()
 
     return loss.item()
 
@@ -55,43 +51,75 @@ def make_action(model: Model, env: Env, state: np.ndarray, eps: float) -> int:
     if np.random.random() < eps:
         return env.action_space.sample()
 
-    model.eval()
-    state = state.reshape(1, -1)
-    q: torch.Tensor = model.forward(torch.Tensor(state))
-    return int(q.max(1)[1].item())
+    with torch.inference_mode():
+        state = state.reshape(1, -1)
+        q: torch.Tensor = model.forward(torch.Tensor(state))
+        return int(q.max(1)[1].item())
 
-def train(
-    config: Config,
+def train2(
+    config: CartPoleConfig,
     env: Env,
     model: Model,
-    target_model: Model,
-    memory: ReplayMemory,
     optimizer: torch.optim.Optimizer,
 ):
     model.train()
-
-    # logger = CSVLogger(config, ['episode', 'step', 'loss', 'reward', 'ep_reward', 'eps', 'action', 'x_pos'])
-    logger = CSVLogger(config, ['episode', 'step', 'loss', 'reward', 'ep_reward', 'eps', 'action'])
-    now = datetime.now()
-    criterion = nn.SmoothL1Loss()
-
     for episode in range(config.start_episode, config.n_episodes):
         state: np.ndarray = env.reset()  # type: ignore
-        ep_reward: float = 0.0
-        # max_x_pos: float = 0.0
-
-        # get eps
-        # eps is 1.0 when collectiong data to memory
-        if len(memory) < config.replay_memory_batch_size:
-            eps = 1.0
-        else:
-            eps = config.eps(episode)
+        memory = EpisodeSteps(config.gamma)
+        eps = config.eps(episode)
 
         for step in range(config.n_steps):
             # print(f'step: {step}')
             if config.env_render:
                 env.render()
 
+            x = Variable(torch.Tensor([state]))
+            probs = torch.softmax(model(x), dim=1)
+
+            action = np.random.choice(range(env.action_space.n), p=probs.detach().numpy()[0])
+            next_state, reward, done, _ = env.step(action)
+            # print(f'action: {action}, prob: {probs[0][action]}')
+            memory.append(Step(probs[0][action], reward))
+            state = next_state
+
+            if done:
+                break
+
+        ep_reward, loss = memory.loss()
+        print(f'episode: {episode}, loss: {loss:.2f}, ep_reward: {ep_reward}')
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        # logger.save()
+
+def train(
+    config: CartPoleConfig,
+    env: Env,
+    model: Model,
+    target_model: Model,
+    memory: ReplayMemory,
+    optimizer: torch.optim.Optimizer,
+):
+    """
+    - Experience Replay
+    - Fixed Target Network
+    - Epsilon-Greedy
+    """
+    model.train()
+    logger = CSVLogger(config, ['episode', 'eps', 'ep_reward', 'avg_loss'])
+    now = datetime.now()
+
+    for episode in range(config.start_episode, config.n_episodes):
+        state: np.ndarray = env.reset()  # type: ignore
+        ep_reward: float = 0.0
+        avg_loss: float = 0.0
+
+        eps = config.eps(episode)
+
+        for step in range(config.n_steps):
+            if config.env_render:
+                env.render()
 
             action = make_action(model, env, state, eps)
 
@@ -103,22 +131,12 @@ def train(
 
             # sync target model
             if step % config.target_update_frequency == 0:
-                print(f'update target model')
                 target_model.load_state_dict(model.state_dict())
 
             # compute loss
-            loss = train_model(config, model, target_model, memory, optimizer, criterion)
+            loss = train_loss(config, model, target_model, memory, optimizer)
 
-            logger.append({
-                'episode': episode,
-                'step': step,
-                'loss': loss,
-                'reward': reward,
-                'ep_reward': ep_reward,
-                'eps': eps,
-                'action': action,
-                # 'x_pos': info['x_pos'],
-            })
+            avg_loss += loss
 
             # print(f'{step} step eps: {eps:.2f} reward: {reward:.2f} loss: {loss:.4f}')
 
@@ -129,46 +147,48 @@ def train(
                 break
 
         if episode % config.model_save_interval_episode == 0:
-            message = f'[{config.project_id}/ep {episode:3d}] (total: {ep_reward:.2f}) loss: {loss:.4f}'
+            message = f'[{config.project_id}/ep {episode:3d}] ep_reward: {ep_reward:.2f} loss: {loss:.4f}, eps: {eps:.2f}'
             send_discord(message)
             save_model(config, model, optimizer, memory, episode)
 
-        logger.save()
 
+        logger.append({
+            'episode': episode,
+            'eps': eps,
+            'ep_reward': ep_reward,
+            'avg_loss': avg_loss / step,
+        })
 
-def exp_mem(course: str):
-    env_id = f'SuperMarioBros-{course}-v0'
-    for rep_momory_size in [
-        1000,
-        10000,
-        100000,
-    ]:
-        config = SMBConfig()
-
-        # continue
-        config.env_id = env_id
-        config.project_id = f'{config.project_id}-{course}_mem={rep_momory_size}'
-
-        env = make_env(config)
-        model, target_model, optimizer, memory = load_model(config, env)
-        train(config, env, model, target_model, memory, optimizer)
-
+    logger.save()
 
 def exp_cartpole():
-    for rep_momory_size in [
+    for cap in [
         10,
         1000,
         100000,
     ]:
         config = CartPoleConfig()
         env = make_env(config)
-        config.replay_memory_batch_size = rep_momory_size
-        config.project_id = f'{config.project_id}_mem={rep_momory_size}'
+        config.replay_momory_capacity = cap
+        config.project_id = f'{config.project_id}_mem={cap}'
 
         model, target_model, optimizer, memory = load_model(config, env)
         train(config, env, model, target_model, memory, optimizer)
 
+    for batch_size in [
+        10,
+        50,
+        100,
+        500,
+    ]:
+        config = CartPoleConfig()
+        env = make_env(config)
+        config.replay_memory_batch_size = batch_size
+        config.project_id = f'{config.project_id}_batch={batch_size}'
+
+        model, target_model, optimizer, memory = load_model(config, env)
+        train(config, env, model, target_model, memory, optimizer)
+
+
 if __name__ == '__main__':
     exp_cartpole()
-    # exp_mem('1-1')
-    # exp_mem('2-2')

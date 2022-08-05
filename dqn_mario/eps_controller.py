@@ -5,7 +5,7 @@ class ConstantEps():
     def __init__(self, eps: float):
         self.eps = eps
 
-    def __call__(self) -> float:
+    def __call__(self, epsode: int) -> float:
         return self.eps
 
 class DecayEps():

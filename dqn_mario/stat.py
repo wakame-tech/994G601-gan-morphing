@@ -1,37 +1,80 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 from eps_controller import DecayEps
-
 import numpy as np
+from glob import glob
+from icecream import ic
+
+# https://github.com/garrettj403/SciencePlots
+plt.style.use('science')
+
+def plot_eps():
+    episodes = np.arange(1, 1001)
+    eps = DecayEps(1, 0.01, 50)
+    eps_list = [eps(i) for i in episodes]
+    # set y to log scale
+    plt.figure(dpi=300)
+    plt.yscale('log')
+    plt.plot(episodes, eps_list)
+    plt.xlabel('Episode')
+    plt.ylabel(r'$\epsilon$')
+    plt.title(r'Decay $\epsilon$-greedy')
+    plt.savefig('eps.png')
+
+def plot_ep_reward(path: str, title: str, df: pd.DataFrame):
+    x, y = df['episode'], df['ep_reward']
+    # last 10 episodes average
+    rng = 50
+    y_avg = np.array([np.mean(y[max(0, i-rng):i]) for i in range(len(y))])
+    y_std = np.array([np.std(y[max(0, i-rng):i]) for i in range(len(y))])
+
+    plt.figure(dpi=300)
+    plt.plot(x, y_avg)
+    # light blue area is standard deviation
+
+    plt.fill_between(x, y_avg - y_std, y_avg + y_std, color='lightblue', alpha=0.5)
+    plt.xlabel('Episode')
+    plt.ylabel('Reward')
+    plt.title(title)
+    # plt.show()
+    plt.savefig(f'{path}.png')
+    print(f'{path} saved')
+    plt.close()
 
 
+def plot_ep_loss(path: str, title: str, df: pd.DataFrame):
+    x, y = df['episode'], df['loss']
+    rng = 50
+    y_avg = np.array([np.mean(y[max(0, i-rng):i]) for i in range(len(y))])
+    y_std = np.array([np.std(y[max(0, i-rng):i]) for i in range(len(y))])
+    plt.plot(x, y_avg)
 
-def read_log_csv(course: str, mem: int):
-    return pd.read_csv(f'./models/smb-dqn-{course}_mem={mem}_log.csv')
-
-def tally_x_pos(df: pd.DataFrame):
-    return df.groupby('episode')['x_pos'].max().mean()
-
-def tally_reward(df: pd.DataFrame):
-    rewards = df.groupby('episode')['ep_reward'].max().to_list()
-    plt.plot(rewards)
-    plt.show()
-
-def stat_eps():
-    eps_ctrl = DecayEps(1.0, 0.01, 300)
-    epsodes = np.arange(1, 1001)
-    eps = [eps_ctrl(e) for e in epsodes]
-    plt.plot(epsodes, eps)
+    plt.fill_between(x, y_avg - y_std, y_avg + y_std, color='lightblue', alpha=0.5)
+    plt.xlabel('Episode')
+    plt.ylabel('Loss')
+    plt.title(title)
+    # plt.show()
+    plt.savefig(f'{path}.png')
+    print(f'{path} saved')
+    plt.close()
 
 if __name__ == '__main__':
-    # course = '1-4'
-    df = pd.read_csv('./models/cartpole-dqn_log.csv')
-    tally_reward(df)
-    exit()
-    course = '2-2'
-    for mem in [1000, 10000, 100000]:
-        df = read_log_csv(course, mem)
-        res = tally_x_pos(df)
-        print(f'{course}: {mem=} {res=}')
-        res = tally_reward(df)
-        print(f'{course}: {mem=} {res=}')
+    # plot_eps()
+    # exit()
+    for csv_path in glob('./models/cartpole-v1_mem=*.csv'):
+        print(csv_path)
+        prm = csv_path.split('_')[1].split('.')[0]
+        df = pd.read_csv(csv_path)
+        # distinct by episode
+        df = df.drop_duplicates(subset='episode')
+        plot_ep_reward(f'reward_{prm}', f'Episode Rewards ({prm})', df)
+        plot_ep_reward(f'loss_{prm}', f'Episode Loss ({prm})', df)
+
+    for csv_path in glob('./models/cartpole-v1_batch=*.csv'):
+        print(csv_path)
+        prm = csv_path.split('_')[1].split('.')[0]
+        df = pd.read_csv(csv_path)
+        # distinct by episode
+        df = df.drop_duplicates(subset='episode')
+        plot_ep_reward(f'reward_{prm}', f'Episode Rewards ({prm})', df)
+        plot_ep_reward(f'loss_{prm}', f'Episode Loss ({prm})', df)

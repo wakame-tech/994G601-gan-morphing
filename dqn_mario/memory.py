@@ -1,5 +1,6 @@
 from collections import deque
 from pathlib import Path
+from tkinter import Variable
 from typing import Tuple
 import torch
 import numpy as np
@@ -62,3 +63,27 @@ def load_pickle(path: Path) -> ReplayMemory:
     with open(path, 'rb') as f:
         memory = pickle.load(f)
     return memory
+
+from dataclasses import dataclass
+
+@dataclass
+class Step:
+    confidence: Variable
+    reward: float
+
+class EpisodeSteps:
+    def __init__(self, gamma: float) -> None:
+        self.gamma = gamma
+        self.buffer = []
+
+    def append(self, step: Step):
+        self.buffer.append(step)
+
+    def loss(self) -> Tuple[float, torch.Tensor]:
+        loss = torch.tensor(1, dtype=torch.float32)
+        for i, step in enumerate(self.buffer):
+            reward = sum([(self.gamma ** j) * step.reward for j, step in enumerate(self.buffer[i:])])
+            loss += -torch.log(step.confidence) * reward
+
+        ep_reward = sum([(self.gamma ** j) * step.reward for j, step in enumerate(self.buffer)])
+        return ep_reward, loss

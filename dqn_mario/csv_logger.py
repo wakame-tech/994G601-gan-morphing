@@ -20,8 +20,9 @@ class CSVLogger:
         self.df = CSVLogger.load_df(config, columns)
 
     def append(self, row: dict):
-        self.df = pd.concat([self.df, pd.DataFrame(row, index=['episode', 'step'])])
+        self.df = pd.concat([self.df, pd.DataFrame(row, index=['episode'])])
 
     def save(self):
         df_path = CSVLogger.df_path(self.config)
+        self.df = self.df.drop_duplicates(subset=['episode'])
         self.df.to_csv(df_path, index=False)
