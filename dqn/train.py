@@ -16,6 +16,12 @@ from util import send_discord
 
 warnings.simplefilter('ignore')
 
+
+def seed_everything(seed: int):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+
 def train_loss(
     config: CartPoleConfig,
     model: Model,
@@ -51,10 +57,11 @@ def make_action(model: Model, env: Env, state: np.ndarray, eps: float) -> int:
     if np.random.random() < eps:
         return env.action_space.sample()
 
-    with torch.inference_mode():
-        state = state.reshape(1, -1)
-        q: torch.Tensor = model.forward(torch.Tensor(state))
-        return int(q.max(1)[1].item())
+    model.eval()
+    state = state.reshape(1, -1)
+    q: torch.Tensor = model.forward(torch.Tensor(state))
+    model.train()
+    return int(q.max(1)[1].item())
 
 def train2(
     config: CartPoleConfig,
@@ -106,11 +113,13 @@ def train(
     - Fixed Target Network
     - Epsilon-Greedy
     """
-    model.train()
+    seed_everything(config.seed)
+
     logger = CSVLogger(config, ['episode', 'eps', 'ep_reward', 'avg_loss'])
     now = datetime.now()
 
     for episode in range(config.start_episode, config.n_episodes):
+        model.train()
         state: np.ndarray = env.reset()  # type: ignore
         ep_reward: float = 0.0
         avg_loss: float = 0.0
@@ -141,15 +150,17 @@ def train(
             # print(f'{step} step eps: {eps:.2f} reward: {reward:.2f} loss: {loss:.4f}')
 
             if done:
-                delta = datetime.now() - now
-                now = datetime.now()
-                print(f'ep: {episode} @ {delta.total_seconds():.1f}s eps: {eps:.2f} total_reward: {ep_reward:.2f} loss: {loss:.4f}')
                 break
 
         if episode % config.model_save_interval_episode == 0:
             message = f'[{config.project_id}/ep {episode:3d}] ep_reward: {ep_reward:.2f} loss: {loss:.4f}, eps: {eps:.2f}'
             send_discord(message)
             save_model(config, model, optimizer, memory, episode)
+
+
+        delta = datetime.now() - now
+        now = datetime.now()
+        print(f'ep: {episode} @ {delta.total_seconds():.1f}s eps: {eps:.2f} total_reward: {ep_reward:.2f} loss: {avg_loss / step:.2f}')
 
 
         logger.append({

@@ -19,16 +19,12 @@
 ## assignment 3
 - [x] setup
 - [x] read sample code
-
+- [x] train
+- [x] write a report
 
 ## setup
 ### install dependencies
 ```bash
 $ pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu113
-$ pip3 install matplotlib numpy
-```
-
-### start TensorBoard
-```
-$ just board
+$ pip3 install matplotlib numpy gym
 ```

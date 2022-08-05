@@ -9,6 +9,8 @@ class Config:
     model_dir: Path
     model_save_interval_episode: int
 
+    seed: int = 0
+
     n_episodes: int
     start_episode: int
     n_steps: int
@@ -33,6 +35,8 @@ class CartPoleConfig(Config):
     project_id: str = 'cartpole-v1'
     model_dir: Path = Path('models/')
     model_save_interval_episode: int = 500
+
+    seed: int = 0
 
     n_episodes: int = 1000
     start_episode: int = 0
